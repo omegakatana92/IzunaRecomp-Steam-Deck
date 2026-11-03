@@ -579,7 +579,9 @@ VkPipeline Pipeline(const PipelineKey& key, const ShaderInfo* vs, const ShaderIn
 // Where the pipeline cache lives: UserData on the PS5, cache\ beside the
 // executable on a PC.
 std::filesystem::path PipelineDir() {
-#if defined(__PROSPERO__)
+#if defined(IZUNA_LINUX_DESKTOP)
+  return ng2ps5::paths::Cache();
+#elif defined(__PROSPERO__)
   return ng2ps5::paths::UserData();
 #else
 #if defined(_WIN32)

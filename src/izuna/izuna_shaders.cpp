@@ -201,25 +201,6 @@ void Save(const std::filesystem::path& path, uint64_t translator_hash, const Tab
 
 }  // namespace
 
-std::vector<uint8_t> CopyReadable(const uint8_t* src, size_t size) {
-  std::vector<uint8_t> out(size);
-  if (!src) return out;
-#if defined(_WIN32)
-  for (size_t at = 0; at < size;) {
-    MEMORY_BASIC_INFORMATION mbi{};
-    if (!VirtualQuery(src + at, &mbi, sizeof(mbi))) break;
-    const size_t region = std::min<size_t>(
-        size - at, size_t(static_cast<const uint8_t*>(mbi.BaseAddress) + mbi.RegionSize - (src + at)));
-    const DWORD p = mbi.Protect & 0xFF;
-    if (mbi.State == MEM_COMMIT && !(mbi.Protect & PAGE_GUARD) && p != PAGE_NOACCESS && p != 0)
-      std::memcpy(out.data() + at, src + at, region);
-    at += region;
-  }
-#else
-  std::memcpy(out.data(), src, size);
-#endif
-  return out;
-}
 
 void SetActive(Table* table) { g_active = table; }
 const Table* Active() { return g_active; }

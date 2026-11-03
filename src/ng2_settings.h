@@ -267,8 +267,8 @@ struct Ng2Settings {
 
 
   static std::filesystem::path Path() {
-#if defined(__PROSPERO__)
-    // [ps5 port] With the rest of what the app writes, in UserData/.
+#if defined(__PROSPERO__) || defined(IZUNA_LINUX_DESKTOP)
+    // With the rest of what the app writes, in UserData/.
     return ng2ps5::paths::UserData() / "ng2_settings.cfg";
 #else
     return rex::filesystem::GetExecutableFolder() / "ng2_settings.cfg";
@@ -318,7 +318,11 @@ struct Ng2Settings {
 #endif
     if (!dlc_path.empty())
       return Beside(dlc_path);
+#if defined(IZUNA_LINUX_DESKTOP)
+    return ng2ps5::paths::Dlc();
+#else
     return rex::filesystem::GetExecutableFolder() / "dlc";
+#endif
   }
 
   void Load() {

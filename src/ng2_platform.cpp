@@ -80,6 +80,9 @@ void ExitNow(int code) {
 
 }  // namespace ng2
 
+#elif defined(IZUNA_LINUX_DESKTOP)
+#include "linux/ng2_platform_linux.inc"
+
 #else  // Windows
 
 #include <windows.h>

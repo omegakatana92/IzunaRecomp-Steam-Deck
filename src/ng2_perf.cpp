@@ -1,6 +1,6 @@
 #include "ng2_perf.h"
 
-#if defined(__PROSPERO__)
+#if !defined(_WIN32)
 #include <sys/resource.h>
 #include <unistd.h>
 #else
@@ -20,7 +20,7 @@
 
 #include <rex/logging.h>
 
-#if !defined(__PROSPERO__)
+#if defined(_WIN32)
 #pragma comment(lib, "pdh.lib")
 #pragma comment(lib, "psapi.lib")
 #endif
@@ -38,7 +38,7 @@ std::atomic<bool> g_stop{false};
 std::atomic<bool> g_started{false};
 std::atomic<uint32_t> g_frames{0};
 
-#if defined(__PROSPERO__)
+#if !defined(_WIN32)
 // [ps5 port] The same readouts from what the console offers. CPU is this
 // process's user + system time over wall time, across the cores it can run
 // on. There is no per-process GPU counter or separate video memory on the PS5

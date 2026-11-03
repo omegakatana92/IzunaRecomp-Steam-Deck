@@ -183,6 +183,22 @@
             "displayName": "macOS ARM64 RelWithDebInfo",
             "inherits": "mac-arm64-base",
             "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo" }
+        },
+        {
+            "name": "linux-steam-deck-release",
+            "displayName": "Experimental native Linux / Steam Deck",
+            "inherits": "linux-base",
+            "binaryDir": "${sourceDir}/out/linux-desktop",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_C_COMPILER": "clang-19",
+                "CMAKE_CXX_COMPILER": "clang++-19",
+                "CMAKE_C_FLAGS": "-march=x86-64-v3",
+                "CMAKE_CXX_FLAGS": "-stdlib=libstdc++ -march=x86-64-v3",
+                "IZUNA_LINUX_DESKTOP": "ON",
+                "REXGLUE_ENABLE_TRACY": "OFF",
+                "REXSDK_DIR": "${sourceDir}/third_party/rexglue-sdk"
+            }
         }
     ],
     "buildPresets": [
@@ -203,6 +219,7 @@
         { "name": "mac-amd64-relwithdebinfo", "configurePreset": "mac-amd64-relwithdebinfo" },
         { "name": "mac-arm64-debug", "configurePreset": "mac-arm64-debug" },
         { "name": "mac-arm64-release", "configurePreset": "mac-arm64-release" },
-        { "name": "mac-arm64-relwithdebinfo", "configurePreset": "mac-arm64-relwithdebinfo" }
+        { "name": "mac-arm64-relwithdebinfo", "configurePreset": "mac-arm64-relwithdebinfo" },
+        {"name": "linux-steam-deck-release", "configurePreset": "linux-steam-deck-release", "targets": ["ng2"]}
     ]
 }

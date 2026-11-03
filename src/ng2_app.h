@@ -121,6 +121,14 @@ class Ng2App : public rex::ReXApp {
   // OnFinalizePaths (which needs the game path) and before OnPreSetup (which
   // needs everything else), and both run later.
   void OnConfigurePaths(rex::PathConfig& paths) override {
+#if defined(IZUNA_LINUX_DESKTOP)
+    ng2ps5::paths::EnsureFolders();
+    paths.config_path = ng2ps5::paths::UserData() / "ng2.toml";
+    if (rex::cvar::GetFlagByName("log_file").empty()) {
+      const auto stamp = std::chrono::system_clock::now().time_since_epoch().count();
+      rex::cvar::SetFlagByName("log_file", (ng2ps5::paths::Logs() / fmt::format("ng2_{}.log", stamp)).string());
+    }
+#endif
     settings_.Load();
     ApplyEnvironmentOverrides();
     // [IzunaRecomp] Logging off (the Developer tab): the log never starts
@@ -192,8 +200,8 @@ class Ng2App : public rex::ReXApp {
   // had already filled in before this hook ran, so this survives the SDK
   // changing its mind about where the default should be.
   void UsePortableUserData(rex::PathConfig& paths) {
-#if defined(__PROSPERO__)
-    // [ps5 port] Always the app's UserData folder (ps5_paths.h); there is no
+#if defined(__PROSPERO__) || defined(IZUNA_LINUX_DESKTOP)
+    // [desktop/PS5] Always the app's UserData folder (ps5_paths.h); there is no
     // older location to bring anything across from.
     paths.user_data_root = ng2ps5::paths::UserData();
     paths.cache_root = ng2ps5::paths::Cache() / "shaders";
@@ -542,7 +550,7 @@ class Ng2App : public rex::ReXApp {
   // no shaders of its own. (The PS5 and the Linux host test, with no DXC,
   // draw with the table built in at build time.)
   void OnBeforeModuleResume(std::function<void()> start) override {
-#if defined(_WIN32)
+#if defined(_WIN32) || defined(IZUNA_LINUX_DESKTOP)
     auto* state = REX_KERNEL_STATE();
     auto module = state ? state->GetExecutableModule() : rex::system::object_ref<rex::system::UserModule>();
     auto* xex = module ? module->xex_module() : nullptr;
@@ -553,8 +561,12 @@ class Ng2App : public rex::ReXApp {
     const uint32_t base = xex->base_address(), size = xex->image_size();
     const auto exe_dir = rex::filesystem::GetExecutableFolder();
     std::filesystem::path cache = exe_dir / "cache" / "shaders";
+    #if defined(_WIN32)
     if (const wchar_t* local = _wgetenv(L"LOCALAPPDATA"); local && *local)
       cache = std::filesystem::path(local) / L"IzunaRecomp" / L"shaders";
+    #else
+    cache = ng2ps5::paths::Cache() / "shaders";
+    #endif
     REXLOG_INFO("[izuna] shaders: preparing from the game image ({:08X}, {} MB)", base, size >> 20);
     // The panel in the window (empty until the first shader is built: a start
     // that loads the saved build never shows it).
@@ -570,7 +582,13 @@ class Ng2App : public rex::ReXApp {
       static izuna::shaders::Table table;
       auto last = std::make_shared<std::atomic<int>>(-1);
       const auto report = izuna::shaders::Prepare(
-          image.data(), image.size(), cache, exe_dir / "dxcompiler.dll", table,
+          image.data(), image.size(), cache,
+#if defined(_WIN32)
+          exe_dir / "dxcompiler.dll",
+#else
+          exe_dir / "libdxcompiler.so",
+#endif
+          table,
           [this, last](size_t done, size_t total) {
             shader_progress_.total.store(int(total), std::memory_order_relaxed);
             shader_progress_.done.store(int(done), std::memory_order_relaxed);
@@ -587,7 +605,7 @@ class Ng2App : public rex::ReXApp {
         // cannot be drawn, so the player is told why rather than shown black.
         izuna::pc::ShowError(fmt::format(
             "The game's shaders could not be prepared from your copy of Ninja Gaiden II ({}).\n\n"
-            "Check that dxcompiler.dll is beside ng2.exe, and that the game folder is a complete copy of the disc.",
+            "Check that the platform DXC library is beside the executable, and that the game folder is a complete copy of the disc.",
             report.error));
         ng2::ExitNow(1);
       }
@@ -1231,7 +1249,11 @@ class Ng2App : public rex::ReXApp {
       entries.push_back(std::move(e));
     }
     Ng2Tuning::Apply(
+#if defined(IZUNA_LINUX_DESKTOP)
+        ng2ps5::paths::Cache() / "ng2_tuning.toml",
+#else
         rex::filesystem::GetExecutableFolder() / "cache" / "ng2_tuning.toml",
+#endif
         entries);
   }
 
