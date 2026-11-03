@@ -172,12 +172,27 @@ void InstallCrashDumps(const std::filesystem::path& logs) {
 #include <thread>
 
 #include <rex/logging.h>
+#if defined(IZUNA_LINUX_DESKTOP)
+#include <SDL3/SDL.h>
+#endif
 
 namespace izuna::pc {
 void TuneProcess() {}
 void EnsureSingleInstance() {}
 void ShowError(const std::string& text) { REXLOG_ERROR("{}", text); }
-bool ScreenSize(int*, int*) { return false; }
+bool ScreenSize(int* width, int* height) {
+#if defined(IZUNA_LINUX_DESKTOP)
+  SDL_Window* window = SDL_GetKeyboardFocus();
+  const SDL_DisplayID display = window ? SDL_GetDisplayForWindow(window) : SDL_GetPrimaryDisplay();
+  const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(display);
+  if (!mode) return false;
+  if (width) *width = mode->w;
+  if (height) *height = mode->h;
+  return mode->w > 0 && mode->h > 0;
+#else
+  return false;
+#endif
+}
 void RaiseThreadPriority(int) {}
 void SleepNs(int64_t ns) {
   if (ns > 0) std::this_thread::sleep_for(std::chrono::nanoseconds(ns));

@@ -1,10 +1,16 @@
 #include "ng2_diagnostics.h"
 
-#if !defined(__PROSPERO__)
+#if defined(_WIN32)
 #include <windows.h>
 #include <shellapi.h>
 #endif
 
+#if defined(IZUNA_LINUX_DESKTOP)
+#include <sys/utsname.h>
+#include <unistd.h>
+#include <SDL3/SDL.h>
+#include "ps5/ps5_paths.h"
+#endif
 #include <algorithm>
 #include <cstring>
 #include <chrono>
@@ -34,7 +40,7 @@ constexpr size_t kMaxLogLines = 4000;
 std::string TimeStamp(const char* format) {
   const auto now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
   std::tm tm{};
-#if defined(__PROSPERO__)
+#if !defined(_WIN32)
   localtime_r(&now, &tm);
 #else
   localtime_s(&tm, &now);
@@ -107,7 +113,26 @@ void AppendFile(std::ostream& out, const fs::path& path, const char* title,
     out << l << "\n";
 }
 
-#if defined(__PROSPERO__)
+#if defined(IZUNA_LINUX_DESKTOP)
+std::string OsVersion() {
+  utsname u{};
+  return uname(&u) == 0 ? std::string(u.sysname) + " " + u.release : "Linux";
+}
+std::string CpuName() {
+  std::ifstream file("/proc/cpuinfo"); std::string line;
+  while (std::getline(file, line)) {
+    if (line.rfind("model name", 0) == 0) {
+      const auto at = line.find(':');
+      if (at != std::string::npos) return line.substr(at + 1);
+    }
+  }
+  return "unknown";
+}
+double GigabytesOfRam() {
+  const long pages = sysconf(_SC_PHYS_PAGES), size = sysconf(_SC_PAGESIZE);
+  return pages > 0 && size > 0 ? double(pages) * double(size) / (1024.0*1024.0*1024.0) : 0;
+}
+#elif defined(__PROSPERO__)
 // [ps5 port] One machine: say which, and leave the firmware to the log, where
 // the runtime records what it found.
 std::string OsVersion() { return "PlayStation 5 (jailbroken, homebrew app)"; }
@@ -178,7 +203,21 @@ double GigabytesOfRam() {
 
 }  // namespace
 
-#if defined(__PROSPERO__)
+#if defined(IZUNA_LINUX_DESKTOP)
+bool CopyToClipboard(const std::string& text) { return SDL_SetClipboardText(text.c_str()); }
+void RevealInExplorer(const fs::path& file) {
+  const auto path = fs::absolute(file.parent_path()).string();
+  // Percent encode the filesystem path before handing it to the desktop URI handler.
+  std::string uri = "file://";
+  constexpr char hex[] = "0123456789ABCDEF";
+  for (unsigned char c : path) {
+    if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+        (c >= '0' && c <= '9') || c == '/' || c == '-' || c == '_' || c == '.' || c == '~') uri += char(c);
+    else { uri += '%'; uri += hex[c >> 4]; uri += hex[c & 15]; }
+  }
+  SDL_OpenURL(uri.c_str());
+}
+#elif defined(__PROSPERO__)
 // [ps5 port] No clipboard and no file browser on the console: the file is
 // written to logs/, the folder players already send over FTP.
 bool CopyToClipboard(const std::string&) { return false; }
@@ -215,7 +254,9 @@ void RevealInExplorer(const fs::path& file) {
 
 DiagnosticsResult WriteDiagnostics(const fs::path& settings_file, const fs::path& log_dir) {
   DiagnosticsResult result;
-#if defined(__PROSPERO__)
+#if defined(IZUNA_LINUX_DESKTOP)
+  const fs::path out_dir = ng2ps5::paths::Logs() / "diagnostics";
+#elif defined(__PROSPERO__)
   const fs::path out_dir = log_dir.empty() ? rex::filesystem::GetExecutableFolder() / "logs" : log_dir;
 #else
   const fs::path out_dir = rex::filesystem::GetExecutableFolder() / "diagnostics";
@@ -241,6 +282,8 @@ DiagnosticsResult WriteDiagnostics(const fs::path& settings_file, const fs::path
 #if defined(__PROSPERO__)
   out << "PS5 version:  " << NG2_PS5_VERSION << "\n";
   out << "Executable:   " << (rex::filesystem::GetExecutableFolder() / "eboot.bin").string() << "\n";
+#elif defined(IZUNA_LINUX_DESKTOP)
+  out << "Executable:   " << rex::filesystem::GetExecutablePath().string() << "\n";
 #else
   out << "Executable:   " << (rex::filesystem::GetExecutableFolder() / "ng2.exe").string() << "\n";
 #endif
@@ -263,7 +306,7 @@ DiagnosticsResult WriteDiagnostics(const fs::path& settings_file, const fs::path
     out << "GPU:  " << gpu.name << " (" << vram << " dedicated)\n";
 #endif
   } else {
-    out << "GPU:  not readable through DXGI\n";
+    out << "GPU:  diagnostics unavailable (see renderer device log)\n";
   }
 
   AppendFile(out, settings_file, "ng2_settings.cfg");

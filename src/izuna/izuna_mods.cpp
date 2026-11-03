@@ -53,7 +53,7 @@
 #include <rex/system/kernel_state.h>
 #include <rex/system/xmemory.h>
 
-#if defined(__PROSPERO__)
+#if defined(__PROSPERO__) || defined(IZUNA_LINUX_DESKTOP)
 #include "ps5/ps5_paths.h"
 #endif
 
@@ -242,7 +242,11 @@ fs::path CacheDir() {
 #if defined(__PROSPERO__)
   return ng2ps5::paths::Cache() / "mods";
 #else
+#if defined(IZUNA_LINUX_DESKTOP)
+  return ng2ps5::paths::Cache() / "mods";
+#else
   return rex::filesystem::GetExecutableFolder() / "cache" / "mods";
+#endif
 #endif
 }
 
@@ -316,7 +320,11 @@ fs::path Root() {
 #if defined(__PROSPERO__)
   return ng2ps5::paths::App() / "Mods";
 #else
+#if defined(IZUNA_LINUX_DESKTOP)
+  return ng2ps5::paths::WritableRoot() / "mods";
+#else
   return rex::filesystem::GetExecutableFolder() / "mods";
+#endif
 #endif
 }
 

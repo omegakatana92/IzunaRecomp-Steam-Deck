@@ -95,6 +95,14 @@ the release has the controls and the settings in detail.
 Report anything else through issues, with the `logs` folder from beside
 `ng2.exe` (the newest `ng2_*.log`, and a `crash-*.dmp` if there is one).
 
+## Experimental Linux / Steam Deck development
+
+This fork adds an opt-in native Linux desktop build and packaging scripts.
+Compilation and gameplay status, prerequisites and remaining acceptance checks
+are tracked in [docs/LINUX_STEAM_DECK.md](docs/LINUX_STEAM_DECK.md).
+Use `tools/linux/build.sh` after SDK setup and supplying your own `assets/default.xex`.
+This is not a claim of validated Steam Deck compatibility.
+
 ## Building from source
 
 See [docs/BUILDING.md](docs/BUILDING.md). In short: the ReXGlue SDK is fetched

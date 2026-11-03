@@ -9,7 +9,7 @@
 // Off by default: it is a hack on the game's own render setup, and 1120x584 is
 // what the title shipped with. When it is off these hooks cost one comparison.
 
-#if defined(__PROSPERO__)
+#if !defined(_WIN32)
 // [ps5 port] The POSIX names of the case-insensitive compares.
 #include <strings.h>
 #define _stricmp strcasecmp

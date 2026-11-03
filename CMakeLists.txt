@@ -29,6 +29,14 @@ if(WIN32)
     set(REXGLUE_STATIC_RUNTIME ON CACHE BOOL "Link the runtime statically" FORCE)
 endif()
 
+option(IZUNA_LINUX_DESKTOP "Build the experimental native Linux desktop application" OFF)
+if(IZUNA_LINUX_DESKTOP)
+    if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux" OR PS5 OR NG2_PS5_HOST_TEST)
+        message(FATAL_ERROR "IZUNA_LINUX_DESKTOP requires native Linux, without PS5 host stubs")
+    endif()
+    set(REXGLUE_USE_VULKAN ON CACHE BOOL "Vulkan backend" FORCE)
+    set(REXGLUE_STATIC_RUNTIME ON CACHE BOOL "Static runtime" FORCE)
+endif()
 include(generated/rexglue.cmake)
 # [IzunaRecomp] Not asynchronous exceptions for the recompiled game on
 # Windows: they are for guest SEH scopes (__try in the game's code), which
@@ -133,7 +141,7 @@ endif()
 # [IzunaRecomp] Windows: the PS5's hub as the front screen (src/ps5/hub), with
 # the PC's input, sound and folders in the same files (ps5_pad.cpp,
 # ps5_sound.cpp, ps5_paths.cpp: SDL and the .exe's folder off the PS5).
-if(WIN32)
+if(WIN32 OR IZUNA_LINUX_DESKTOP)
     file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/IZUNA_VERSION" IZUNA_VERSION LIMIT_COUNT 1)
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/IZUNA_VERSION")
     list(APPEND NG2_SOURCES
@@ -207,7 +215,7 @@ rexglue_setup_target(ng2)
 # host test (no DXC) have them built in: tools/native/build_shaders.sh writes
 # out/native-shaders/shader_cache.cpp - made from the game: build output,
 # never committed.
-if(WIN32)
+if(WIN32 OR IZUNA_LINUX_DESKTOP)
     target_compile_definitions(ng2 PRIVATE IZUNA_SHADERS_FROM_GAME=1)
 else()
     set(NG2_SHADER_CACHE "${CMAKE_CURRENT_SOURCE_DIR}/out/native-shaders/shader_cache.cpp")
@@ -315,8 +323,8 @@ elseif(NG2_PS5_HOST_TEST)
         $<TARGET_PROPERTY:imgui,INTERFACE_INCLUDE_DIRECTORIES>
         ${REXSDK_DIR}/thirdparty/stb
         ${REXSDK_DIR}/thirdparty/xxHash)
-elseif(WIN32)
-    # [IzunaRecomp] The Windows build from the SDK's source tree (not its
+elseif(WIN32 OR IZUNA_LINUX_DESKTOP)
+    # [IzunaRecomp] The desktop build from the SDK's source tree (not its
     # installed package): ImGui and stb from there, as the PS5 build takes them.
     target_compile_definitions(ng2 PRIVATE
         IZUNA_VERSION="${IZUNA_VERSION}"
@@ -334,6 +342,8 @@ if(WIN32)
     # [IzunaRecomp] Minidumps (dbghelp), 1 ms timers (winmm); a PDB beside the
     # .exe to read the minidumps with (kept with the build, not shipped).
     target_link_libraries(ng2 PRIVATE dbghelp winmm)
+endif()
+if(WIN32 OR IZUNA_LINUX_DESKTOP)
     # [IzunaRecomp] The game's shaders built from the player's own copy at
     # startup (src/izuna/izuna_shaders.cpp): our XenosRecomp fork's translator
     # (third_party/xenosrecomp, MIT) and DXC loaded from dxcompiler.dll beside
@@ -350,12 +360,15 @@ if(WIN32)
         "extern const unsigned long kIzunaShaderCommonSize = ${_izuna_sc_len};\n")
     set(_izuna_xr
         third_party/xenosrecomp/shader_recompiler.cpp
-        src/izuna/izuna_shaders.cpp)
+        src/izuna/izuna_shaders.cpp
+        src/izuna/izuna_readable.cpp)
     target_sources(ng2 PRIVATE ${_izuna_xr} "${CMAKE_CURRENT_BINARY_DIR}/izuna_shader_common.cpp")
     set_source_files_properties(${_izuna_xr} PROPERTIES
         COMPILE_DEFINITIONS "REEOT_RECOMP;NG2_RECOMP;_CRT_SECURE_NO_WARNINGS"
         COMPILE_OPTIONS "-Wno-switch;-Wno-unused-variable;-Wno-null-arithmetic;-fms-extensions;-w"
         INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/third_party/xenosrecomp;${CMAKE_CURRENT_SOURCE_DIR}/third_party/xenosrecomp/inc;${CMAKE_CURRENT_SOURCE_DIR}/third_party/smol-v;${CMAKE_CURRENT_SOURCE_DIR}/third_party/zstd")
+endif()
+if(WIN32)
     # [IzunaRecomp] The CPU level (tools/windows/toolchain.cmake): ng2.exe for
     # x86-64-v3 with the redirect for older CPUs, ng2-compat.exe for x86-64-v2.
     if(IZUNA_MARCH STREQUAL "x86-64-v3")
@@ -368,6 +381,12 @@ if(WIN32)
     # (/DEBUG alone turns the linker's dead-code removal and folding off: back on)
     target_link_options(ng2 PRIVATE "-Wl,/DEBUG" "-Wl,/OPT:REF" "-Wl,/OPT:ICF")
 endif()
-if(NOT WIN32)
+if(NOT WIN32 AND NOT IZUNA_LINUX_DESKTOP)
     target_sources(ng2 PRIVATE src/izuna/izuna_shaders_none.cpp)  # [IzunaRecomp] (no startup build: the built-in table)
+endif()
+
+if(IZUNA_LINUX_DESKTOP)
+    target_compile_definitions(ng2 PRIVATE IZUNA_LINUX_DESKTOP=1)
+    target_link_libraries(ng2 PRIVATE ${CMAKE_DL_LIBS})
+    target_link_options(ng2 PRIVATE "-Wl,-rpath,$ORIGIN")
 endif()

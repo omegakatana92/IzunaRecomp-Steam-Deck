@@ -1,7 +1,7 @@
 #include "ng2_autoskip.h"
 #include "native/native_renderer.h"
 
-#if !defined(__PROSPERO__)
+#if defined(_WIN32)
 #include <windows.h>
 #else
 #include <mutex>
@@ -176,8 +176,8 @@ uint16_t ScriptButtons(double now) {
 // version present differs across Windows installs and a missing DLL should cost
 // the feature, not the process.
 bool RealPadActive() {
-#if defined(__PROSPERO__)
-  // [ps5 port] The DualSense through scePad, the same way: the synthetic pad
+#if !defined(_WIN32)
+  // [POSIX] The DualSense through scePad, the same way: the synthetic pad
   // is not an scePad device, so this sees only the player's hands. Any button
   // or the left stick past half counts as touching it.
   static std::mutex mutex;
@@ -404,7 +404,7 @@ void WritePadAcceptsOnce() {
   const auto path = PadDir() / "pad_script.accepts";
   std::ofstream f(path, std::ios::trunc);
   if (f) {
-#if defined(__PROSPERO__)
+#if !defined(_WIN32)
     f << "ng2recomp pad script v1 pid=" << getpid() << "\n";  // [ps5 port]
 #else
     f << "ng2recomp pad script v1 pid=" << GetCurrentProcessId() << "\n";

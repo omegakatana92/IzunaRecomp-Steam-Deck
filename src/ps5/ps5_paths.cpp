@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <fstream>
+#include <cstdlib>
 
 #include <rex/filesystem.h>
 #include <rex/logging.h>
@@ -16,6 +17,15 @@ namespace fs = std::filesystem;
 namespace ng2ps5::paths {
 
 fs::path App() { return rex::filesystem::GetExecutableFolder(); }
+#if defined(IZUNA_LINUX_DESKTOP)
+namespace {
+fs::path Xdg(const char* variable, const char* suffix) {
+  if (const char* p = std::getenv(variable); p && fs::path(p).is_absolute()) return fs::path(p) / "IzunaRecomp";
+  if (const char* p = std::getenv("HOME"); p && fs::path(p).is_absolute()) return fs::path(p) / suffix / "IzunaRecomp";
+  throw std::runtime_error("An absolute HOME or XDG directory is required");
+}
+}
+#endif
 #if defined(__PROSPERO__)
 fs::path GameData() {
   // [native renderer track] This dev build installs beside the main app
@@ -39,9 +49,27 @@ fs::path g_game_data;
 fs::path GameData() { return g_game_data.empty() ? App() / "game" : g_game_data; }
 void SetGameData(const fs::path& folder) { g_game_data = folder; }
 #endif
-fs::path Dlc() { return App() / "DLC"; }
-fs::path SavesImport() { return App() / "Saves Import"; }
-fs::path TexturePacks() { return App() / "Texture Packs"; }
+fs::path Dlc() {
+#if defined(IZUNA_LINUX_DESKTOP)
+  return WritableRoot() / "DLC";
+#else
+  return App() / "DLC";
+#endif
+}
+fs::path SavesImport() {
+#if defined(IZUNA_LINUX_DESKTOP)
+  return WritableRoot() / "Saves Import";
+#else
+  return App() / "Saves Import";
+#endif
+}
+fs::path TexturePacks() {
+#if defined(IZUNA_LINUX_DESKTOP)
+  return WritableRoot() / "Texture Packs";
+#else
+  return App() / "Texture Packs";
+#endif
+}
 namespace {
 
 // Whether `dir` can be written: made if missing, then a file created in it.
@@ -66,6 +94,9 @@ bool CanWrite(const fs::path& dir) {
 // the saves with nowhere to go. Then they live in /data/ng2recomp instead -
 // decided once, said in the log.
 fs::path WritableRoot() {
+#if defined(IZUNA_LINUX_DESKTOP)
+  return Xdg("XDG_DATA_HOME", ".local/share");
+#else
   static const fs::path root = [] {
     if (CanWrite(App() / "UserData"))
       return App();
@@ -80,9 +111,13 @@ fs::path WritableRoot() {
     return App();
   }();
   return root;
+#endif
 }
 
-#if defined(__PROSPERO__)
+#if defined(IZUNA_LINUX_DESKTOP)
+fs::path UserData() { return WritableRoot() / "user"; }
+fs::path Cache() { return Xdg("XDG_CACHE_HOME", ".cache"); }
+#elif defined(__PROSPERO__)
 fs::path UserData() { return WritableRoot() / "UserData"; }
 fs::path Cache() { return UserData() / "cache"; }
 #else
